@@ -18,24 +18,46 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Asegura que exista un documento de perfil en /users/{uid}
-        const ref = doc(db, "users", firebaseUser.uid);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          await setDoc(ref, {
-            name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-            email: firebaseUser.email,
-            role: ADMIN_UIDS.includes(firebaseUser.uid) ? "admin" : "trader",
-            createdAt: serverTimestamp(),
-          });
+      // IMPORTANTE: todo el trabajo async va dentro de try/catch/finally.
+      // Si Firestore falla (reglas no publicadas, sin conexión, etc.),
+      // el finally garantiza que loading siempre se apague y la app
+      // nunca se quede congelada en "Cargando...".
+      try {
+        if (firebaseUser) {
+          const ref = doc(db, "users", firebaseUser.uid);
+          let profile;
+          try {
+            const snap = await getDoc(ref);
+            if (!snap.exists()) {
+              const newProfile = {
+                name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+                email: firebaseUser.email,
+                role: ADMIN_UIDS.includes(firebaseUser.uid) ? "admin" : "trader",
+                createdAt: serverTimestamp(),
+              };
+              await setDoc(ref, newProfile);
+              profile = newProfile;
+            } else {
+              profile = snap.data();
+            }
+          } catch (firestoreErr) {
+            // Si Firestore falla (p. ej. reglas de seguridad no publicadas
+            // o permission-denied), no bloqueamos el login: usamos un
+            // perfil mínimo basado solo en Firebase Auth.
+            console.error("Error leyendo/creando perfil en Firestore:", firestoreErr);
+            profile = {
+              name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+              email: firebaseUser.email,
+              role: ADMIN_UIDS.includes(firebaseUser.uid) ? "admin" : "trader",
+            };
+          }
+          setUser({ uid: firebaseUser.uid, ...profile });
+        } else {
+          setUser(null);
         }
-        const profile = (await getDoc(ref)).data();
-        setUser({ uid: firebaseUser.uid, ...profile });
-      } else {
-        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);
