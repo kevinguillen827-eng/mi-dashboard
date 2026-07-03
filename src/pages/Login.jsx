@@ -79,7 +79,7 @@ export default function Login() {
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ width: "100%", maxWidth: 380 }} className="fade-in">
-          <h2 className="disp" style={{ fontSize: 24, fontWeight: 500, marginBottom: 6 }}>
+          <h2 className="brand" style={{ fontSize: 21, fontWeight: 400, marginBottom: 8, color: "var(--text-hi)" }}>
             {mode === "login" ? "Bienvenido de nuevo" : "Crear cuenta"}
           </h2>
           <p style={{ color: "var(--text-mid)", fontSize: 13.5, marginBottom: 26 }}>
