@@ -6,36 +6,32 @@ import {
   deleteOperation,
   bulkAddOperations,
 } from "../services/firestoreService";
-import { syncOperationsToFile, getActiveFileName, restoreSyncedFile } from "../services/excelSyncService";
+import { syncOperationsToFile, getActiveFileName, checkStoredConnection } from "../services/excelSyncService";
 import { calcResultado } from "../utils/trading";
 
-/**
- * Fuente única de verdad para las operaciones del usuario.
- * - Se suscribe a Firestore en tiempo real (onSnapshot).
- * - Al iniciar sesión, intenta restaurar automáticamente la conexión
- *   con el archivo Excel guardada en IndexedDB (si existe), para que
- *   la sincronización sobreviva a cerrar sesión o recargar la página.
- * - Cada vez que hay un cambio, si hay un archivo Excel conectado,
- *   lo vuelve a escribir automáticamente (sincronización en tiempo real).
- */
 export function useOperations() {
   const { user } = useAuth();
   const [operations, setOperations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncedFile, setSyncedFile] = useState(null);
-  const firstLoad = useRef(true);
+  const [needsReconnect, setNeedsReconnect] = useState(null);
+  const [syncError, setSyncError] = useState(null);
   const restoreAttempted = useRef(false);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
 
-    // Restaura la conexión con el archivo Excel una sola vez por sesión,
-    // sin bloquear la carga de operaciones (corre en paralelo).
     if (!restoreAttempted.current) {
       restoreAttempted.current = true;
-      restoreSyncedFile().then((fileName) => {
-        if (fileName) setSyncedFile(fileName);
+      checkStoredConnection().then((result) => {
+        if (!result) return;
+        if (result.granted) {
+          setSyncedFile(result.name);
+          setNeedsReconnect(null);
+        } else {
+          setNeedsReconnect(result.name);
+        }
       });
     }
 
@@ -47,11 +43,12 @@ export function useOperations() {
         setSyncedFile(fileName);
         try {
           await syncOperationsToFile(ops, calcResultado);
+          setSyncError(null);
         } catch (err) {
           console.error("Error sincronizando con Excel:", err);
+          setSyncError("No se pudo escribir en el archivo Excel conectado.");
         }
       }
-      firstLoad.current = false;
     });
     return unsub;
   }, [user]);
@@ -60,5 +57,8 @@ export function useOperations() {
   const remove = (opId) => deleteOperation(user.uid, opId);
   const bulkCreate = (ops) => bulkAddOperations(user.uid, ops);
 
-  return { operations, loading, create, remove, bulkCreate, syncedFile, setSyncedFile };
+  return {
+    operations, loading, create, remove, bulkCreate,
+    syncedFile, setSyncedFile, needsReconnect, setNeedsReconnect, syncError,
+  };
 }
