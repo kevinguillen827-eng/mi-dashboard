@@ -23,7 +23,7 @@ export default function Sidebar() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", marginBottom: 26 }}>
         <div style={{ width: 28, height: 28, borderRadius: 7, background: "var(--gold-soft)", border: "1px solid var(--gold-dim)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)" }}>◆</div>
-        <span className="disp" style={{ fontSize: 17 }}>LEDGER</span>
+        <span className="disp" style={{ fontSize: 17 }}>2030</span>
       </div>
 
       <nav style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
