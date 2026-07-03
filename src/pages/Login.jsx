@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import StarField from "../components/StarField";
+import IntroAnimation from "../components/IntroAnimation";
 
 export default function Login() {
   const { user, loginEmail, registerEmail, loginGoogle } = useAuth();
@@ -12,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
 
   useEffect(() => {
     if (user) navigate("/", { replace: true });
@@ -44,12 +46,16 @@ export default function Login() {
     }
   };
 
+  if (showIntro) {
+    return <IntroAnimation onFinish={() => setShowIntro(false)} />;
+  }
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex" }}>
+    <div className="fade-in" style={{ minHeight: "100vh", display: "flex" }}>
       <div
         className="desktop-only"
         style={{
-          flex: 1.1, background: "radial-gradient(circle at 20% 20%, #14181f 0%, #0a0c10 65%)",
+          flex: 1.1, background: "radial-gradient(circle at 20% 20%, var(--brand-dark) 0%, #060402 65%)",
           borderRight: "1px solid var(--border-subtle)", flexDirection: "column",
           justifyContent: "space-between", padding: 48, minHeight: "100vh",
           position: "relative", overflow: "hidden",
@@ -57,12 +63,12 @@ export default function Login() {
       >
         <StarField count={140} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", zIndex: 1 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: "var(--gold-soft)", border: "1px solid var(--gold-dim)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)" }}>◆</div>
-          <span className="disp" style={{ fontSize: 19 }}>2030</span>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "rgba(245, 228, 199, 0.14)", border: "1px solid var(--brand-cream)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand-cream)" }}>◆</div>
+          <span className="brand" style={{ fontSize: 17, color: "var(--brand-cream)" }}>2030</span>
         </div>
         <div style={{ position: "relative", zIndex: 1 }}>
-          <h1 className="disp" style={{ fontSize: 34, lineHeight: 1.25, marginTop: 28, fontWeight: 500, maxWidth: 440 }}>
-            Cada operación, registrada.<br />Cada decisión, medida.
+          <h1 className="brand" style={{ fontSize: 32, lineHeight: 1.3, marginTop: 28, maxWidth: 460, color: "var(--brand-cream)" }}>
+            CADA OPERACIÓN, REGISTRADA. CADA DECISIÓN, MEDIDA.
           </h1>
           <p style={{ color: "var(--text-mid)", fontSize: 14, marginTop: 14, maxWidth: 380, lineHeight: 1.6 }}>
             “Diario de trading profesional con base de datos en tiempo real y sincronización directa con Excel.”.
