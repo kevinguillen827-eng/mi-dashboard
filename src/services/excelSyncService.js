@@ -3,12 +3,15 @@
 //
 // Estrategia (File System Access API — Chrome / Edge / Opera):
 //   1. El usuario elige o crea un archivo .xlsx una sola vez
-//      (showSaveFilePicker). Guardamos el "file handle" en memoria
-//      (no es serializable entre recargas por seguridad del navegador).
+//      (showSaveFilePicker). El "file handle" resultante se guarda
+//      en IndexedDB (sí es serializable ahí, a diferencia de
+//      localStorage/sessionStorage), para que la conexión persista
+//      entre recargas, cierres de sesión y reinicios del navegador.
 //   2. Cada vez que la lista de operaciones cambia (Firestore onSnapshot
 //      dispara), volcamos el estado completo a ese archivo automáticamente.
 //   3. El usuario también puede "Importar" un .xlsx existente en cualquier
 //      momento (input file clásico + SheetJS) para traer datos hacia la app.
+//   4. La conexión solo se elimina si el usuario pulsa "Desconectar".
 //
 // En navegadores sin soporte para File System Access API (Firefox, Safari)
 // se hace fallback automático a exportar/importar manual (descarga + input).
@@ -20,12 +23,88 @@ export const supportsFileSystemAccess = () =>
 
 let activeFileHandle = null;
 
+// ---- Persistencia del handle en IndexedDB ----
+const DB_NAME = "ledger-excel-sync";
+const STORE_NAME = "handles";
+const HANDLE_KEY = "activeFileHandle";
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveHandleToDb(handle) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(handle, HANDLE_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadHandleFromDb() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const req = tx.objectStore(STORE_NAME).get(HANDLE_KEY);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function clearHandleFromDb() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).delete(HANDLE_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Intenta restaurar la conexión con el archivo Excel guardado
+ * en un inicio de sesión anterior (o antes de recargar la página).
+ * Si el navegador requiere confirmar el permiso de nuevo (por
+ * seguridad, luego de cerrar la pestaña), lo solicita automáticamente.
+ * Devuelve el nombre del archivo si se restauró, o null si no había
+ * ninguno guardado o el usuario negó el permiso.
+ */
+export async function restoreSyncedFile() {
+  if (!supportsFileSystemAccess()) return null;
+  try {
+    const handle = await loadHandleFromDb();
+    if (!handle) return null;
+
+    let permission = await handle.queryPermission({ mode: "readwrite" });
+    if (permission !== "granted") {
+      permission = await handle.requestPermission({ mode: "readwrite" });
+    }
+    if (permission !== "granted") return null;
+
+    activeFileHandle = handle;
+    return handle.name;
+  } catch (err) {
+    console.error("No se pudo restaurar el archivo Excel sincronizado:", err);
+    return null;
+  }
+}
+
 export function getActiveFileName() {
   return activeFileHandle ? activeFileHandle.name : null;
 }
 
-export function disconnectFile() {
+/** Desconecta el archivo por completo (acción explícita del usuario). */
+export async function disconnectFile() {
   activeFileHandle = null;
+  await clearHandleFromDb();
 }
 
 /** Abre el selector para crear/elegir el archivo Excel que se mantendrá sincronizado. */
@@ -35,7 +114,7 @@ export async function chooseSyncFile() {
       "Tu navegador no soporta sincronización directa con archivos. Usa Chrome, Edge u Opera, o utiliza Importar/Exportar manual."
     );
   }
-  activeFileHandle = await window.showSaveFilePicker({
+  const handle = await window.showSaveFilePicker({
     suggestedName: `ledger_operaciones_${new Date().toISOString().slice(0, 10)}.xlsx`,
     types: [
       {
@@ -44,7 +123,9 @@ export async function chooseSyncFile() {
       },
     ],
   });
-  return activeFileHandle.name;
+  activeFileHandle = handle;
+  await saveHandleToDb(handle);
+  return handle.name;
 }
 
 function operationsToWorkbook(operations, calcResultado) {
@@ -69,74 +150,4 @@ function operationsToWorkbook(operations, calcResultado) {
     { wch: 30 }, { wch: 13 },
   ];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Operaciones");
-  return wb;
-}
-
-/**
- * Escribe el estado actual de operaciones directamente en el archivo
- * conectado (si existe). Se llama automáticamente en cada cambio de datos.
- */
-export async function syncOperationsToFile(operations, calcResultado) {
-  if (!activeFileHandle) return false;
-  const wb = operationsToWorkbook(operations, calcResultado);
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  const writable = await activeFileHandle.createWritable();
-  await writable.write(out);
-  await writable.close();
-  return true;
-}
-
-/** Descarga manual (fallback universal, funciona en cualquier navegador). */
-export function downloadOperationsAsExcel(operations, calcResultado) {
-  const wb = operationsToWorkbook(operations, calcResultado);
-  XLSX.writeFile(wb, `ledger_operaciones_${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
-/** Lee un archivo .xlsx/.csv (desde <input type="file">) y devuelve operaciones normalizadas. */
-export function parseExcelFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const wb = XLSX.read(evt.target.result, { type: "binary" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
-        resolve(json.map(normalizeRow));
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsBinaryString(file);
-  });
-}
-
-function findKey(row, keys) {
-  for (const k of keys) {
-    const found = Object.keys(row).find((kk) => kk.trim().toLowerCase() === k.toLowerCase());
-    if (found) return row[found];
-  }
-  return "";
-}
-
-function normalizeRow(row) {
-  let fecha = findKey(row, ["Fecha"]);
-  if (typeof fecha === "number") {
-    const d = XLSX.SSF.parse_date_code(fecha);
-    fecha = `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-  }
-  return {
-    fecha: fecha || new Date().toISOString().slice(0, 10),
-    activo: findKey(row, ["Activo"]) || "N/D",
-    tipo: findKey(row, ["Tipo"]) === "Venta" ? "Venta" : "Compra",
-    cantidad: Number(findKey(row, ["Cantidad"])) || 0,
-    precioEntrada: Number(findKey(row, ["Precio Entrada", "PrecioEntrada"])) || 0,
-    precioSalida: Number(findKey(row, ["Precio Salida", "PrecioSalida"])) || 0,
-    comision: Number(findKey(row, ["Comisión", "Comision"])) || 0,
-    estrategia: findKey(row, ["Estrategia"]) || "",
-    mercado: findKey(row, ["Par/Mercado", "Mercado"]) || "",
-    riesgoPct: Number(findKey(row, ["Riesgo (%)", "Riesgo"])) || "",
-    notas: findKey(row, ["Notas"]) || "",
-  };
-}
+  XLSX.utils.book_append_sheet(wb, ws,
