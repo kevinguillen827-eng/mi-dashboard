@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useOperations } from "../hooks/useOperations";
-import { chooseSyncFile, disconnectFile, supportsFileSystemAccess, syncOperationsToFile, downloadOperationsAsExcel } from "../services/excelSyncService";
+import { chooseSyncFile, disconnectFile, supportsFileSystemAccess, syncOperationsToFile, downloadOperationsAsExcel, reconnectStoredFile } from "../services/excelSyncService";
 import { calcResultado } from "../utils/trading";
 
 export default function ExcelSync() {
-  const { operations, syncedFile, setSyncedFile } = useOperations();
+  const { operations, syncedFile, setSyncedFile, needsReconnect, setNeedsReconnect, syncError } = useOperations();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const supported = supportsFileSystemAccess();
@@ -16,8 +16,24 @@ export default function ExcelSync() {
       const name = await chooseSyncFile();
       await syncOperationsToFile(operations, calcResultado);
       setSyncedFile(name);
+      setNeedsReconnect(null);
     } catch (err) {
       if (err.name !== "AbortError") setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const name = await reconnectStoredFile();
+      await syncOperationsToFile(operations, calcResultado);
+      setSyncedFile(name);
+      setNeedsReconnect(null);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setBusy(false);
     }
@@ -26,6 +42,7 @@ export default function ExcelSync() {
   const handleDisconnect = async () => {
     await disconnectFile();
     setSyncedFile(null);
+    setNeedsReconnect(null);
   };
 
   return (
@@ -44,7 +61,7 @@ export default function ExcelSync() {
           </div>
         )}
 
-        {syncedFile ? (
+        {syncedFile && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--green-soft)", padding: "12px 16px", borderRadius: 8 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--green)" }}>Conectado</div>
@@ -52,13 +69,31 @@ export default function ExcelSync() {
             </div>
             <button type="button" className="btn-ghost" onClick={handleDisconnect}>Desconectar</button>
           </div>
-        ) : (
+        )}
+
+        {!syncedFile && needsReconnect && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--gold-soft)", padding: "12px 16px", borderRadius: 8, gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--gold)" }}>Sincronización pausada</div>
+              <div className="mono" style={{ fontSize: 12.5, color: "var(--text-mid)" }}>{needsReconnect}</div>
+              <div style={{ fontSize: 11.5, color: "var(--text-low)", marginTop: 4 }}>
+                Tu navegador pide confirmar el permiso de nuevo tras cerrar sesión. Dale a Reconectar (no perderás nada).
+              </div>
+            </div>
+            <button type="button" className="btn-primary" onClick={handleReconnect} disabled={busy}>
+              {busy ? "Reconectando…" : "Reconectar"}
+            </button>
+          </div>
+        )}
+
+        {!syncedFile && !needsReconnect && (
           <button type="button" className="btn-primary" onClick={handleConnect} disabled={!supported || busy}>
             {busy ? "Conectando…" : "Conectar archivo Excel"}
           </button>
         )}
 
         {error && <p style={{ color: "var(--red)", fontSize: 12.5, marginTop: 14 }}>{error}</p>}
+        {syncError && <p style={{ color: "var(--red)", fontSize: 12.5, marginTop: 14 }}>{syncError}</p>}
       </div>
 
       <div className="card" style={{ padding: "24px 26px" }}>
