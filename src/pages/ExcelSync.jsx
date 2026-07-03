@@ -23,8 +23,8 @@ export default function ExcelSync() {
     }
   };
 
-  const handleDisconnect = () => {
-    disconnectFile();
+  const handleDisconnect = async () => {
+    await disconnectFile();
     setSyncedFile(null);
   };
 
