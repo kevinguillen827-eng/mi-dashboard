@@ -1,20 +1,5 @@
 // ------------------------------------------------------------------
 // Sincronización en tiempo real con un archivo .xlsx real en disco.
-//
-// Estrategia (File System Access API - Chrome / Edge / Opera):
-//   1. El usuario elige o crea un archivo .xlsx una sola vez
-//      (showSaveFilePicker). El "file handle" resultante se guarda
-//      en IndexedDB (si es serializable ahi, a diferencia de
-//      localStorage/sessionStorage), para que la conexion persista
-//      entre recargas, cierres de sesion y reinicios del navegador.
-//   2. Cada vez que la lista de operaciones cambia (Firestore onSnapshot
-//      dispara), volcamos el estado completo a ese archivo automaticamente.
-//   3. El usuario tambien puede "Importar" un .xlsx existente en cualquier
-//      momento (input file clasico + SheetJS) para traer datos hacia la app.
-//   4. La conexion solo se elimina si el usuario pulsa "Desconectar".
-//
-// En navegadores sin soporte para File System Access API (Firefox, Safari)
-// se hace fallback automatico a exportar/importar manual (descarga + input).
 // ------------------------------------------------------------------
 import * as XLSX from "xlsx";
 
@@ -68,16 +53,58 @@ async function clearHandleFromDb() {
   });
 }
 
+/**
+ * Revisa si hay un archivo guardado en IndexedDB de una sesión anterior,
+ * SIN pedir permiso (queryPermission no requiere interacción del usuario,
+ * a diferencia de requestPermission). Sirve para mostrar en la interfaz
+ * "tenías X.xlsx conectado" y decidir si hace falta reconectar con un click.
+ */
+export async function checkStoredConnection() {
+  if (!supportsFileSystemAccess()) return null;
+  try {
+    const handle = await loadHandleFromDb();
+    if (!handle) return null;
+    const permission = await handle.queryPermission({ mode: "readwrite" });
+    if (permission === "granted") {
+      activeFileHandle = handle;
+      return { name: handle.name, granted: true };
+    }
+    return { name: handle.name, granted: false };
+  } catch (err) {
+    console.error("No se pudo revisar la conexión guardada:", err);
+    return null;
+  }
+}
+
+/**
+ * Reconecta el archivo guardado pidiendo el permiso explícitamente.
+ * DEBE llamarse directamente desde un manejador de click (onClick),
+ * porque los navegadores exigen un gesto del usuario para requestPermission
+ * cuando el permiso no está ya concedido.
+ */
+export async function reconnectStoredFile() {
+  const handle = await loadHandleFromDb();
+  if (!handle) throw new Error("No hay ningún archivo guardado para reconectar.");
+  const permission = await handle.requestPermission({ mode: "readwrite" });
+  if (permission !== "granted") throw new Error("Permiso denegado para el archivo.");
+  activeFileHandle = handle;
+  return handle.name;
+}
+
+/**
+ * Intenta restaurar la conexión con el archivo Excel guardado
+ * en un inicio de sesión anterior (o antes de recargar la página),
+ * SOLO si el navegador ya tiene el permiso concedido (sin pedirlo).
+ * Devuelve el nombre del archivo si se restauró, o null si no había
+ * ninguno guardado o el permiso no está activo (requiere reconnectStoredFile).
+ */
 export async function restoreSyncedFile() {
   if (!supportsFileSystemAccess()) return null;
   try {
     const handle = await loadHandleFromDb();
     if (!handle) return null;
 
-    let permission = await handle.queryPermission({ mode: "readwrite" });
-    if (permission !== "granted") {
-      permission = await handle.requestPermission({ mode: "readwrite" });
-    }
+    const permission = await handle.queryPermission({ mode: "readwrite" });
     if (permission !== "granted") return null;
 
     activeFileHandle = handle;
