@@ -97,6 +97,53 @@ table.tbl tbody tr:hover { background: var(--bg-panel-3); }
 }
 .tilt-card:hover .tilt-card-shine { opacity: 1; }
 
+/* Blobs decorativos flotando de fondo (estilo Bucks Sauce) */
+.dash-blob-field { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.dash-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.16;
+}
+.dash-blob-1 {
+  width: 420px; height: 420px; top: -120px; right: -100px;
+  background: var(--gold);
+  animation: blobFloat1 22s ease-in-out infinite;
+}
+.dash-blob-2 {
+  width: 340px; height: 340px; bottom: -100px; left: -80px;
+  background: var(--green);
+  animation: blobFloat2 26s ease-in-out infinite;
+}
+.dash-blob-3 {
+  width: 260px; height: 260px; top: 40%; left: 55%;
+  background: var(--brand-cream);
+  animation: blobFloat3 19s ease-in-out infinite;
+}
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60px, 60px) scale(1.15); }
+}
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, -40px) scale(1.1); }
+}
+@keyframes blobFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, -50px) scale(0.9); }
+}
+
+/* Entrada escalonada de tarjetas */
+.stagger-in { animation: staggerIn .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes staggerIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Botón con rebote al presionar */
+.btn-bounce:active { transform: scale(0.94); }
+.btn-bounce { transition: transform .12s ease; }
+
 .scroll-x { overflow-x: auto; }
 .icon-btn { background: transparent; border: none; color: var(--text-low); display: inline-flex; padding: 4px; border-radius: 5px; }
 .icon-btn:hover { color: var(--red); background: var(--red-soft); }
