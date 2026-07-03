@@ -16,7 +16,7 @@ export default function AppLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const title = TITLES[location.pathname] || "LEDGER";
+  const title = TITLES[location.pathname] || "2030";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
