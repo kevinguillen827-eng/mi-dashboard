@@ -13,6 +13,14 @@ export default function Dashboard() {
 
   return (
     <div className="fade-in">
+      {/* Encabezado grande estilo Bucks Sauce */}
+      <h1 className="brand" style={{ fontSize: "clamp(28px, 4vw, 44px)", color: "var(--text-hi)", marginBottom: 4, letterSpacing: "0.01em" }}>
+        DASHBOARD
+      </h1>
+      <p style={{ color: "var(--text-mid)", fontSize: 13.5, marginBottom: 24 }}>
+        Resumen general de tu desempeño como trader.
+      </p>
+
       {/* Fila 1: métricas principales */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 14 }}>
         <StatCard icon="💰" label="Balance total" value={formatMoney(m.balance)} sub={`${m.total} operaciones registradas`} tone={m.balance >= 0 ? "up" : "down"} />
@@ -32,7 +40,7 @@ export default function Dashboard() {
       {/* Curva de equity */}
       <div className="card" style={{ padding: "20px 22px", marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 className="disp" style={{ fontSize: 16, fontWeight: 500 }}>Curva de capital</h3>
+          <h3 className="brand" style={{ fontSize: 15, letterSpacing: "0.03em" }}>CURVA DE CAPITAL</h3>
           <span style={{ fontSize: 11.5, color: "var(--text-low)" }}>Acumulado por operación cerrada</span>
         </div>
         <EquityChart data={m.equityCurve} />
@@ -41,11 +49,11 @@ export default function Dashboard() {
       {/* Desgloses por activo y estrategia */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div className="card" style={{ padding: "20px 22px" }}>
-          <h3 className="disp" style={{ fontSize: 16, fontWeight: 500, marginBottom: 14 }}>Resultado por activo</h3>
+          <h3 className="brand" style={{ fontSize: 15, letterSpacing: "0.03em", marginBottom: 14 }}>RESULTADO POR ACTIVO</h3>
           <BreakdownChart data={m.byActivo} />
         </div>
         <div className="card" style={{ padding: "20px 22px" }}>
-          <h3 className="disp" style={{ fontSize: 16, fontWeight: 500, marginBottom: 14 }}>Resultado por estrategia</h3>
+          <h3 className="brand" style={{ fontSize: 15, letterSpacing: "0.03em", marginBottom: 14 }}>RESULTADO POR ESTRATEGIA</h3>
           <BreakdownChart data={m.byEstrategia} />
         </div>
       </div>
@@ -58,7 +66,7 @@ export default function Dashboard() {
 
       {/* Operaciones recientes */}
       <div className="card" style={{ padding: "20px 22px" }}>
-        <h3 className="disp" style={{ fontSize: 16, fontWeight: 500, marginBottom: 14 }}>Operaciones recientes</h3>
+        <h3 className="brand" style={{ fontSize: 15, letterSpacing: "0.03em", marginBottom: 14 }}>OPERACIONES RECIENTES</h3>
         <div className="scroll-x">
           <table className="tbl">
             <thead>
