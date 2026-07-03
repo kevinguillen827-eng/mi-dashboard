@@ -76,6 +76,27 @@ table.tbl tbody tr:hover { background: var(--bg-panel-3); }
 .intro-3d-fadeout { animation: introFadeOut .55s ease both; }
 @keyframes introFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* Tilt 3D para StatCard */
+.tilt-card-wrap { perspective: 800px; }
+.tilt-card {
+  transition: transform .12s ease-out, box-shadow .2s ease-out, border-color .2s ease-out;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.tilt-card:hover {
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--gold-dim);
+}
+.tilt-card-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease-out;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(245, 228, 199, 0.16), transparent 55%);
+}
+.tilt-card:hover .tilt-card-shine { opacity: 1; }
+
 .scroll-x { overflow-x: auto; }
 .icon-btn { background: transparent; border: none; color: var(--text-low); display: inline-flex; padding: 4px; border-radius: 5px; }
 .icon-btn:hover { color: var(--red); background: var(--red-soft); }
