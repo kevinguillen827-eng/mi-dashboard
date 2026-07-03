@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import StarField from "./StarField";
 import { useAuth } from "../context/AuthContext";
-
 const TITLES = {
   "/": "Dashboard",
   "/nueva": "Nueva operación",
@@ -10,18 +10,19 @@ const TITLES = {
   "/excel": "Sincronización Excel",
   "/admin": "Panel de administración",
 };
-
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-
   const title = TITLES[location.pathname] || "2030";
-
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar />
+    <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
+      {/* Fondo de estrellas, fijo detrás de todo el contenido */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
+        <StarField count={110} />
+      </div>
 
+      <Sidebar />
       <div className="mobile-only" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, background: "var(--bg-panel)", borderBottom: "1px solid var(--border-subtle)", alignItems: "center", justifyContent: "space-between", padding: "12px 16px" }}>
         <span className="disp" style={{ fontSize: 15 }}>LEDGER</span>
         <button type="button" onClick={() => setMobileOpen((v) => !v)} style={{ background: "transparent", border: "none", color: "var(--text-hi)", fontSize: 18 }}>☰</button>
@@ -35,8 +36,7 @@ export default function AppLayout() {
           <div className="nav-item" onClick={logout}>⎋ Cerrar sesión</div>
         </div>
       )}
-
-      <main style={{ flex: 1, padding: "28px 32px", maxWidth: "100%" }}>
+      <main style={{ flex: 1, padding: "28px 32px", maxWidth: "100%", position: "relative", zIndex: 1 }}>
         <div className="mobile-only" style={{ height: 40 }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, flexWrap: "wrap", gap: 12 }}>
           <div>
