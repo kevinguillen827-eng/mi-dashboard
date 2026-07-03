@@ -61,14 +61,14 @@ export default function Login() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, background: "var(--gold-soft)", border: "1px solid var(--gold-dim)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)" }}>◆</div>
-          <span className="disp" style={{ fontSize: 19 }}>LEDGER</span>
+          <span className="disp" style={{ fontSize: 19 }}>2030</span>
         </div>
         <div>
           <h1 className="disp" style={{ fontSize: 34, lineHeight: 1.25, marginTop: 28, fontWeight: 500, maxWidth: 440 }}>
             Cada operación, registrada.<br />Cada decisión, medida.
           </h1>
           <p style={{ color: "var(--text-mid)", fontSize: 14, marginTop: 14, maxWidth: 380, lineHeight: 1.6 }}>
-            Diario de trading profesional con autenticación Firebase, base de datos en tiempo real y sincronización directa con Excel.
+            “Diario de trading profesional con base de datos en tiempo real y sincronización directa con Excel.”.
           </p>
         </div>
         <p style={{ color: "var(--text-low)", fontSize: 12 }}>Tus datos se guardan de forma segura y privada por usuario.</p>
