@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { loginEmail, registerEmail, loginGoogle } = useAuth();
+  const { user, loginEmail, registerEmail, loginGoogle } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState("login"); // "login" | "register"
   const [name, setName] = useState("");
@@ -11,6 +11,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Única fuente de verdad para redirigir: en cuanto el contexto confirma
+  // que hay un usuario autenticado (con su perfil ya cargado de Firestore),
+  // se manda al dashboard. Evita la carrera entre navigate() manual y la
+  // actualización asíncrona de onAuthStateChanged.
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,10 +30,10 @@ export default function Login() {
       } else {
         await registerEmail(name, email, password);
       }
-      navigate("/");
+      // No navegamos aquí: el useEffect de arriba se encarga
+      // en cuanto el contexto detecte la sesión.
     } catch (err) {
       setError(mapFirebaseError(err.code));
-    } finally {
       setBusy(false);
     }
   };
@@ -35,10 +43,8 @@ export default function Login() {
     setBusy(true);
     try {
       await loginGoogle();
-      navigate("/");
     } catch (err) {
       setError(mapFirebaseError(err.code));
-    } finally {
       setBusy(false);
     }
   };
