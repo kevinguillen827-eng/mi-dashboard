@@ -2,9 +2,32 @@
 // Funciones puras de cálculo financiero para el dashboard.
 // ------------------------------------------------------------------
 
+/**
+ * Determina cuántas unidades reales representa 1 lote según el tipo de
+ * instrumento. Esto es lo que faltaba: un lote NO vale lo mismo en
+ * todos los mercados (por eso 0.01 lotes de oro daba un resultado 100
+ * veces menor al real).
+ *   - Forex estándar: 1 lote = 100.000 unidades de la divisa base.
+ *   - Oro (XAU) / Plata (XAG): 1 lote = 100 onzas.
+ *   - Cripto, Acciones, Índices: se asume que "cantidad" ya es la
+ *     cantidad real de unidades/contratos (multiplicador 1).
+ */
+function getContractMultiplier(o) {
+  const activo = (o.activo || "").toUpperCase();
+  const mercado = o.mercado || "";
+
+  if (activo.includes("XAU") || activo.includes("GOLD") || activo.includes("ORO")) return 100;
+  if (activo.includes("XAG") || activo.includes("SILVER") || activo.includes("PLATA")) return 100;
+
+  if (mercado === "Forex") return 100000;
+
+  return 1;
+}
+
 export function calcResultado(o) {
   const dir = o.tipo === "Compra" ? 1 : -1;
-  return (Number(o.precioSalida) - Number(o.precioEntrada)) * Number(o.cantidad) * dir - Number(o.comision || 0);
+  const multiplier = getContractMultiplier(o);
+  return (Number(o.precioSalida) - Number(o.precioEntrada)) * Number(o.cantidad) * multiplier * dir - Number(o.comision || 0);
 }
 
 export function formatMoney(n) {
