@@ -1,0 +1,21 @@
+{
+  "name": "ledger-trading-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST opcional (Node.js + Express + PostgreSQL/MySQL) para reportes agregados, exportaciones server-side y tareas administrativas sobre los datos de Ledger.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0",
+    "firebase-admin": "^12.2.0",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.3.1"
+  }
+}
