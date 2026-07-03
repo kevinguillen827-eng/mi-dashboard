@@ -1,20 +1,20 @@
 // ------------------------------------------------------------------
 // Sincronización en tiempo real con un archivo .xlsx real en disco.
 //
-// Estrategia (File System Access API — Chrome / Edge / Opera):
+// Estrategia (File System Access API - Chrome / Edge / Opera):
 //   1. El usuario elige o crea un archivo .xlsx una sola vez
 //      (showSaveFilePicker). El "file handle" resultante se guarda
-//      en IndexedDB (sí es serializable ahí, a diferencia de
-//      localStorage/sessionStorage), para que la conexión persista
-//      entre recargas, cierres de sesión y reinicios del navegador.
+//      en IndexedDB (si es serializable ahi, a diferencia de
+//      localStorage/sessionStorage), para que la conexion persista
+//      entre recargas, cierres de sesion y reinicios del navegador.
 //   2. Cada vez que la lista de operaciones cambia (Firestore onSnapshot
-//      dispara), volcamos el estado completo a ese archivo automáticamente.
-//   3. El usuario también puede "Importar" un .xlsx existente en cualquier
-//      momento (input file clásico + SheetJS) para traer datos hacia la app.
-//   4. La conexión solo se elimina si el usuario pulsa "Desconectar".
+//      dispara), volcamos el estado completo a ese archivo automaticamente.
+//   3. El usuario tambien puede "Importar" un .xlsx existente en cualquier
+//      momento (input file clasico + SheetJS) para traer datos hacia la app.
+//   4. La conexion solo se elimina si el usuario pulsa "Desconectar".
 //
 // En navegadores sin soporte para File System Access API (Firefox, Safari)
-// se hace fallback automático a exportar/importar manual (descarga + input).
+// se hace fallback automatico a exportar/importar manual (descarga + input).
 // ------------------------------------------------------------------
 import * as XLSX from "xlsx";
 
@@ -23,7 +23,6 @@ export const supportsFileSystemAccess = () =>
 
 let activeFileHandle = null;
 
-// ---- Persistencia del handle en IndexedDB ----
 const DB_NAME = "ledger-excel-sync";
 const STORE_NAME = "handles";
 const HANDLE_KEY = "activeFileHandle";
@@ -69,14 +68,6 @@ async function clearHandleFromDb() {
   });
 }
 
-/**
- * Intenta restaurar la conexión con el archivo Excel guardado
- * en un inicio de sesión anterior (o antes de recargar la página).
- * Si el navegador requiere confirmar el permiso de nuevo (por
- * seguridad, luego de cerrar la pestaña), lo solicita automáticamente.
- * Devuelve el nombre del archivo si se restauró, o null si no había
- * ninguno guardado o el usuario negó el permiso.
- */
 export async function restoreSyncedFile() {
   if (!supportsFileSystemAccess()) return null;
   try {
@@ -101,17 +92,15 @@ export function getActiveFileName() {
   return activeFileHandle ? activeFileHandle.name : null;
 }
 
-/** Desconecta el archivo por completo (acción explícita del usuario). */
 export async function disconnectFile() {
   activeFileHandle = null;
   await clearHandleFromDb();
 }
 
-/** Abre el selector para crear/elegir el archivo Excel que se mantendrá sincronizado. */
 export async function chooseSyncFile() {
   if (!supportsFileSystemAccess()) {
     throw new Error(
-      "Tu navegador no soporta sincronización directa con archivos. Usa Chrome, Edge u Opera, o utiliza Importar/Exportar manual."
+      "Tu navegador no soporta sincronizacion directa con archivos. Usa Chrome, Edge u Opera, o utiliza Importar/Exportar manual."
     );
   }
   const handle = await window.showSaveFilePicker({
@@ -136,7 +125,7 @@ function operationsToWorkbook(operations, calcResultado) {
     Cantidad: o.cantidad,
     "Precio Entrada": o.precioEntrada,
     "Precio Salida": o.precioSalida,
-    Comisión: o.comision,
+    "Comision": o.comision,
     Estrategia: o.estrategia,
     "Par/Mercado": o.mercado || "",
     "Riesgo (%)": o.riesgoPct || "",
@@ -150,4 +139,68 @@ function operationsToWorkbook(operations, calcResultado) {
     { wch: 30 }, { wch: 13 },
   ];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws,
+  XLSX.utils.book_append_sheet(wb, ws, "Operaciones");
+  return wb;
+}
+
+export async function syncOperationsToFile(operations, calcResultado) {
+  if (!activeFileHandle) return false;
+  const wb = operationsToWorkbook(operations, calcResultado);
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const writable = await activeFileHandle.createWritable();
+  await writable.write(out);
+  await writable.close();
+  return true;
+}
+
+export function downloadOperationsAsExcel(operations, calcResultado) {
+  const wb = operationsToWorkbook(operations, calcResultado);
+  XLSX.writeFile(wb, `ledger_operaciones_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+export function parseExcelFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = XLSX.read(evt.target.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        resolve(json.map(normalizeRow));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsBinaryString(file);
+  });
+}
+
+function findKey(row, keys) {
+  for (const k of keys) {
+    const found = Object.keys(row).find((kk) => kk.trim().toLowerCase() === k.toLowerCase());
+    if (found) return row[found];
+  }
+  return "";
+}
+
+function normalizeRow(row) {
+  let fecha = findKey(row, ["Fecha"]);
+  if (typeof fecha === "number") {
+    const d = XLSX.SSF.parse_date_code(fecha);
+    fecha = `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+  }
+  return {
+    fecha: fecha || new Date().toISOString().slice(0, 10),
+    activo: findKey(row, ["Activo"]) || "N/D",
+    tipo: findKey(row, ["Tipo"]) === "Venta" ? "Venta" : "Compra",
+    cantidad: Number(findKey(row, ["Cantidad"])) || 0,
+    precioEntrada: Number(findKey(row, ["Precio Entrada", "PrecioEntrada"])) || 0,
+    precioSalida: Number(findKey(row, ["Precio Salida", "PrecioSalida"])) || 0,
+    comision: Number(findKey(row, ["Comision"])) || 0,
+    estrategia: findKey(row, ["Estrategia"]) || "",
+    mercado: findKey(row, ["Par/Mercado", "Mercado"]) || "",
+    riesgoPct: Number(findKey(row, ["Riesgo (%)", "Riesgo"])) || "",
+    notas: findKey(row, ["Notas"]) || "",
+  };
+}
